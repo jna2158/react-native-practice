@@ -12,11 +12,14 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { theme } from "./color";
 import { useState, useEffect } from "react";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
+import EvilIcons from "@expo/vector-icons/EvilIcons";
 
 export default function App() {
   const [working, setWorking] = useState(true);
   const [input, setInput] = useState("");
   const [todos, setTodos] = useState({});
+  const [editing, setEditing] = useState(false);
+  const [editKey, setEditKey] = useState(null);
 
   const work = async () => {
     await AsyncStorage.setItem("working", "true");
@@ -66,6 +69,24 @@ export default function App() {
     ]);
   };
 
+  const editTodo = (key) => {
+    setEditing(true);
+    setEditKey(key);
+    setInput(todos[key].text);
+  };
+
+  const finishEditing = async () => {
+    if (input !== "" && editKey) {
+      const newTodos = { ...todos };
+      newTodos[editKey].text = input;
+      setTodos(newTodos);
+      await saveTodos(newTodos);
+      setEditing(false);
+      setEditKey(null);
+      setInput("");
+    }
+  };
+
   const toggleTodo = (key) => {
     const newTodos = { ...todos };
     newTodos[key].checked = !newTodos[key].checked;
@@ -98,12 +119,35 @@ export default function App() {
       </View>
       <TextInput
         style={styles.input}
-        placeholder="Add a task"
+        placeholder={editing ? "Edit task" : "Add a task"}
         value={input}
         onChangeText={setInput}
         returnKeyType="done"
-        onSubmitEditing={() => addTodo(input)}
+        onSubmitEditing={() => {
+          if (editing) {
+            finishEditing();
+          } else {
+            addTodo(input);
+          }
+        }}
       />
+      {editing && (
+        <View style={styles.editingControls}>
+          <TouchableOpacity style={styles.editButton} onPress={finishEditing}>
+            <Text style={styles.editButtonText}>저장</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.editButton, styles.cancelButton]}
+            onPress={() => {
+              setEditing(false);
+              setEditKey(null);
+              setInput("");
+            }}
+          >
+            <Text style={styles.editButtonText}>취소</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       <ScrollView>
         {Object.keys(todos).map((key) =>
           working === todos[key].work ? (
@@ -133,11 +177,14 @@ export default function App() {
                 </Text>
               </TouchableOpacity>
               {todos[key].checked ? null : (
-                <TouchableOpacity onPress={() => deleteTodo(key)}>
-                  <Text>
+                <View style={styles.todoIconContainer}>
+                  <TouchableOpacity onPress={() => editTodo(key)}>
+                    <EvilIcons name="pencil" size={34} color="#635959" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => deleteTodo(key)}>
                     <FontAwesome name="trash" size={24} color="#635959" />
-                  </Text>
-                </TouchableOpacity>
+                  </TouchableOpacity>
+                </View>
               )}
             </View>
           ) : null
@@ -197,5 +244,29 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 20,
+  },
+  todoIconContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 15,
+  },
+  editingControls: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+  editButton: {
+    backgroundColor: theme.toDoBg,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+    marginHorizontal: 5,
+  },
+  cancelButton: {
+    backgroundColor: "#635959",
+  },
+  editButtonText: {
+    color: "white",
+    fontWeight: "600",
   },
 });
